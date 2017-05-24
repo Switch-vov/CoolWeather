@@ -11,16 +11,25 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.coolweather.android.R;
+import com.coolweather.android.activity.WeatherActivity;
 import com.coolweather.android.db.City;
 import com.coolweather.android.db.County;
 import com.coolweather.android.db.Province;
+import com.coolweather.android.utils.HttpUtils;
+import com.coolweather.android.utils.Utility;
 
 import org.litepal.crud.DataSupport;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.Response;
 
 /**
  * 选择地区碎片类
@@ -97,6 +106,10 @@ public class ChooseAreaFragment extends Fragment {
             } else if (currentLevel == LEVEL_CITY) {
                 selectedCity = cityList.get(position);
                 queryCounties();
+            } else if (currentLevel == LEVEL_COUNTY) {
+                String weatherId = countyList.get(position).getWeatherId();
+                WeatherActivity.startAction(getActivity(), weatherId);
+                getActivity().finish();
             }
         });
         backButton.setOnClickListener(view -> {
@@ -167,13 +180,67 @@ public class ChooseAreaFragment extends Fragment {
             adapter.notifyDataSetChanged();
             listView.setSelection(0);
             currentLevel = LEVEL_COUNTY;
+        } else {
+            Integer provinceCode = selectedProvice.getProvinceCode();
+            Integer cityCode = selectedCity.getCityCode();
+            String address = "http://guolin.tech/api/china/" + provinceCode + "/" + cityCode;
+            queryFromServer(address, "county");
         }
     }
 
     /**
      * 根据传入的地址和类型从服务器上查询省市县数据
      */
-    private void queryFromServer(String address, String province) {
+    private void queryFromServer(String address, String type) {
+        showProgressDialog();
+        HttpUtils.sendOkHttpRequest(address, new Callback() {
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String responseText = response.body().string();
+                boolean result = false;
+                if ("province".equals(type)) {
+                    result = Utility.handlerProvinceResponse(responseText);
+                } else if ("city".equals(type)) {
+                    result = Utility.handlerCityResponse(responseText, selectedProvice.getId());
+                } else if ("county".equals(type)) {
+                    result = Utility.handlerCountyResponse(responseText, selectedCity.getId());
+                }
+                if (result) {
+                    getActivity().runOnUiThread(() -> {
+                        closeProgressDialog();
+                        if ("province".equals(type)) {
+                            queryProvinces();
+                        } else if ("city".equals(type)) {
+                            queryCities();
+                        } else if ("county".equals(type)) {
+                            queryCities();
+                        }
+                    });
+                }
+            }
 
+            @Override
+            public void onFailure(Call call, IOException e) {
+                getActivity().runOnUiThread(() -> {
+                    closeProgressDialog();
+                    Toast.makeText(getContext(), "加载失败", Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    private void showProgressDialog() {
+        if (progressDialog == null) {
+            progressDialog = new ProgressDialog(getActivity());
+            progressDialog.setMessage("正在加载...");
+            progressDialog.setCanceledOnTouchOutside(false);
+        }
+        progressDialog.show();
+    }
+
+    private void closeProgressDialog() {
+        if (progressDialog != null) {
+            progressDialog.dismiss();
+        }
     }
 }
