@@ -3,6 +3,7 @@ package com.coolweather.android.db;
 import org.litepal.crud.DataSupport;
 
 /**
+ * 省份
  * Created by Switch on 2017/5/24.
  */
 public class Province extends DataSupport {

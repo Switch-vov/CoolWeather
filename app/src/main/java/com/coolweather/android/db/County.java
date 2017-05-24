@@ -3,6 +3,7 @@ package com.coolweather.android.db;
 import org.litepal.crud.DataSupport;
 
 /**
+ * 县/区
  * Created by Switch on 2017/5/24.
  */
 
